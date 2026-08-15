@@ -1,0 +1,24 @@
+# Policy server dependencies.
+fastapi>=0.68
+uvicorn>=0.15
+msgpack>=1.0
+numpy>=1.19
+
+# Minimal direct inference dependencies
+# Note: Do not install torch here as the submission system already has PyTorch with CUDA pre-installed.
+draccus==0.10.0
+num2words==0.5.14
+safetensors==0.8.0
+tokenizers==0.22.2
+transformers==5.5.4
+# 重要: pi0/pi0.5(PaliGemmaバックボーン)はtransformers>=5.4.0系のAPIを前提としており、
+# 4.x系では PaliGemmaModel.get_image_features() の戻り値が生Tensorになり
+# `.pooler_output`アクセスで `'Tensor' object has no attribute 'pooler_output'` エラーとなる
+# （2026-08-11 EXP_007 本番評価でTrack1全タスク成功率0%の根本原因として特定。
+# 学習環境(Modal)ではlerobot[pi]経由でtransformers==5.5.4が解決されていたため未発覚だった）。
+# 重要: torch は同梱不可だが torchvision は別パッケージのため事前インストールされていない。
+# これが無いと SmolVLAPolicy.from_pretrained が "No module named 'torchvision'" で
+# 例外を出し、全ローダーが失敗してフォールバック(ゼロ)actionのみを返し続ける
+# （2026-08-08 実機評価で Track1 全タスク成功率0%の根本原因として特定）。
+torchvision==0.26.0
+gymnasium==1.0.0

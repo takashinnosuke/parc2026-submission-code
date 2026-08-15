@@ -1,0 +1,66 @@
+diff --git a/compe/t1/register.py b/compe/t1/register.py
+index 3aed975..56a3651 100644
+--- a/compe/t1/register.py
++++ b/compe/t1/register.py
+@@ -12,7 +12,7 @@ _PKG_DIR = Path(__file__).resolve().parent
+ _CSV = _PKG_DIR / "T1_TASKS.csv"
+ 
+ 
+-_SUFFIX_RE = re.compile(r"_light_[^.]*|_table_\d+")
++_SUFFIX_RE = re.compile(r"_light_[^.]*|_(?:table|tb)_\d+")
+ 
+ _REGISTERED = False
+ _SUPPORT_GUARD_INSTALLED = False
+diff --git a/pipeline/config.py b/pipeline/config.py
+index a9f425d..5c2b314 100644
+--- a/pipeline/config.py
++++ b/pipeline/config.py
+@@ -60,6 +60,7 @@ class EvalConfig:
+     task_ids: list[str] | None = None
+ 
+ 
++    # n_parallel_envs is declared for future extension; evaluation is executed sequentially in the official pipeline.
+     n_parallel_envs: int = 20
+     use_subprocess: bool = True
+ 
+diff --git a/pipeline/rollout.py b/pipeline/rollout.py
+index 8e3c104..9c3cb48 100644
+--- a/pipeline/rollout.py
++++ b/pipeline/rollout.py
+@@ -170,8 +170,21 @@ class RolloutExecutor:
+ 
+         action_dim = env.robots[0].action_dim
+         dummy_action = np.zeros(action_dim)
+-        for _ in range(10):
++        # 重要: 10ステップでは物理シミュレータの沈み込み・振動が収まりきらないうちに
++        # 「初期位置」を記録してしまい、action=0でも非対象物体が1mmを超えて動いた
++        # ように誤判定される（運営Q&Aスプレッドシート No.38 で報告済みの既知の問題。
++        # 推奨対策: 130ステップまで延長する、または速度が安定するまで待つ）。
++        # ここでは両方を組み合わせ、最短10ステップ経過後に全物体の最大速度が
++        # 十分小さくなった時点で打ち切り、最大130ステップを上限とする。
++        max_warmup_steps = 130
++        min_warmup_steps = 10
++        velocity_settle_threshold = 1e-3
++        for i in range(max_warmup_steps):
+             obs, _, _, _ = env.step(dummy_action)
++            if i + 1 >= min_warmup_steps:
++                qvel = getattr(env.sim.data, "qvel", None)
++                if qvel is None or np.max(np.abs(qvel)) < velocity_settle_threshold:
++                    break
+ 
+ 
+         object_init_pos: dict[str, np.ndarray] = {}
+diff --git a/pipeline/validator.py b/pipeline/validator.py
+index 4bb669a..9fdb199 100644
+--- a/pipeline/validator.py
++++ b/pipeline/validator.py
+@@ -9,6 +9,9 @@ logger = logging.getLogger(__name__)
+ 
+ 
+ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
++_HARNESS_DIR = _PROJECT_ROOT / "harness"
++if str(_HARNESS_DIR) not in sys.path:
++    sys.path.insert(0, str(_HARNESS_DIR))
+ if str(_PROJECT_ROOT) not in sys.path:
+     sys.path.insert(0, str(_PROJECT_ROOT))
+ 

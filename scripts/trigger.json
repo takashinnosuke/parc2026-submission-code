@@ -1,0 +1,12 @@
+{
+  "action": "start_training",
+  "base_model": "lerobot/smolvla_libero_plus",
+  "dataset_repo": "lerobot/libero_plus",
+  "steps": 3000,
+  "batch_size": 1,
+  "lr": 0.0001,
+  "hf_username": "nosuke113",
+  "hf_repo": "nosuke113/parc2026-policy",
+  "hf_token": "",
+  "timestamp": 1785659603.5177493
+}
